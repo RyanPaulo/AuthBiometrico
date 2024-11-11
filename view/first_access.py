@@ -165,7 +165,19 @@ class First_Access:
                 page.snack_bar.open = True
                 page.update()
             else:
-                if access_password.value == access_confirm_password.value:
+                if len(access_password.value) < 5:
+                    print("A senha deve ter no minimo 5 caracteres!")
+                    page.snack_bar = ft.SnackBar(
+                        content=ft.Text(value='A senha deve ter no minimo 5 caracteres!'),
+                        bgcolor='red',
+                        action='OK',
+                        duration=3000
+                    )
+                    page.snack_bar.open = True
+                    access_password.value = None
+                    access_confirm_password.value = None
+                    page.update()
+                elif access_password.value == access_confirm_password.value:
                     success = record_access_db(access_user, access_num_registration, access_password, print_byte)
 
                     if success:
@@ -200,6 +212,14 @@ class First_Access:
                     page.update()
                 else:
                     print("As senha tem que ser iguais!")
+                    page.snack_bar = ft.SnackBar(
+                        content=ft.Text(value='As senha tem que ser iguais!'),
+                        bgcolor='red',
+                        action='OK',
+                        duration=3000
+                    )
+                    page.snack_bar.open = True
+                    page.update()
 
 
 
@@ -314,7 +334,6 @@ class First_Access:
                                     width=350,
                                     height=50,
                                     on_click=btn_register,
-                                    icon=ft.icons.CONTACT_PAGE
                                 ),
 
                                 ft.Container(
