@@ -2,7 +2,9 @@ import os
 import sys
 import cv2
 import flet as ft
-from  view.login import Treatment_User
+import mysql
+from flet_core import FilePickerResultEvent, FilePicker
+from view.login import Treatment_User, print_byte
 from models.auth_biometric import Img_Biometric
 from models.connector_bd import Connector_BD
 
@@ -21,157 +23,105 @@ class Verification:
         treatment = Treatment_User()
         user = treatment.get_user()
 
-        def btn_img_bio_nivel01(e):
-            compare_img = "img/bio_pol_LM1.jpg"
-            verification_img(compare_img)
 
-            print('Imagem biometria Ryan Selecionada.')
-            dialog_verifi_select_img.open = False
-            page.update()
 
-        def btn_img_bio_nivel02(e):
-            compare_img = "img/bio_ind_L.jpg"
-            verification_img(compare_img)
+# Funções da tela de verificação
 
-            print('Imagem biometria Ryan Selecionada.')
-            dialog_verifi_select_img.open = False
-            page.update()
-
-        def btn_img_bio_nivel03(e):
-            compare_img = "img/bio_ind_R.jpg"
-            verification_img(compare_img)
-
-            print('Imagem biometria Ryan Selecionada.')
-            dialog_verifi_select_img.open = False
-            page.update()
-        
-        
         def verification_img(compare_img):
             biometrics = Img_Biometric(compare_img)
             db = Connector_BD()
 
-            db.mycursor.execute("SELECT fingerprint_image FROM login WHERE username = %s", (user,))
-            record = db.mycursor.fetchone()
+            try:
+                db.mycursor.execute("SELECT fingerprint_image FROM login WHERE username = %s", (user,))
+                record = db.mycursor.fetchone()
 
-            if record is None:
-                print(f"Erro: Nenhum dado encontrado para o usuario, {user}")
-                db.mycursor.close()
-                db.close()
+                if record is None:
+                    print(f"Erro: Nenhum dado encontrado para o usuario, {user}")
+                    db.mycursor.close()
+                    db.close()
+                    return
+
+                if record[0] is None:
+                    print(f"Erro: Nenhuma imagem biometrica armazenada para este usuario, {user}.")
+                    db.mycursor.close()
+                    db.close()
+                    return
+
+                # Converte a imagem armazenada para o formato original
+                converted_img = biometrics.byte_to_img(record[0])
+                # Carrega a imagem adquiridia para a comparação
+                acquisition_img = cv2.imread(compare_img)
+
+                print("Biometria armazenada no banco de dados: ")
+                print(converted_img[2])
+
+                print("\nBiometria capturada para comparação: ")
+                print(acquisition_img[2])
+
+
+                if biometrics.match_fingerprints(converted_img):
+                    from view.access import Access
+
+                    a = Access()
+                    a.main(page)
+
+                    screen_verification.visible = False
+                    page.update()
+
+                    print("Autenticação biometrica bem-sucedida!")
+                    page.snack_bar = ft.SnackBar(
+                        content=ft.Text(value=f'Acesso autorizado ao {user}'),
+                        bgcolor='green',
+                        action='OK',
+                        duration=3000
+                    )
+                    page.snack_bar.open = True
+                    page.update()
+                else:
+                    print("autenticação falhou.")
+                    page.snack_bar = ft.SnackBar(
+                        content=ft.Text(value='Autenticação falhou!'),
+                        bgcolor='red',
+                        action='OK',
+                        duration=3000
+                    )
+                    page.snack_bar.open = True
+                    db.mycursor.reset(self)
+                    page.update()
+
+            except mysql.connector.Error as err:
+                print(f"Erro ao acessar o banco de dados: {err}")
                 return
+            finally:
+                if db.mycursor is not None:
+                    db.mycursor.close()
+                if db.mydb is not None:
+                    db.close()
 
-            if record[0] is None:
-                print(f"Erro: Nenhuma imagem biometrica armazenada para este usuario, {user}.")
-                db.mycursor.close()
-                db.close()
-                return
+            page.update()
 
-            converted_img = biometrics.byte_to_img(record[0])
 
-            if converted_img is not None and cv2.norm(converted_img, biometrics.img, cv2.NORM_L2) < 10000:
-                from view.access import Access
+        def on_file_selected(event: FilePickerResultEvent):
+            global print_byte
 
-                a = Access()
-                a.main(page)
+            if event.files:
+                print_byte = event.files[0].path
+                verification_img(print_byte)
 
-                screen_verification.visible = False
-                dialog_verifi_select_img.open = False
-                page.update()
-
-                print("Autenticação biometrica bem-sucedida!")
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(value=f'Acesso autorizado ao {user}'),
-                    bgcolor='green',
-                    action='OK',
-                    duration=3000
-                )
-                page.snack_bar.open = True
+                print("Biometria selecionada:", print_byte)
             else:
-                print("autenticação falhou.")
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(value='Autenticação falhou!'),
-                    bgcolor='red',
-                    action='OK',
-                    duration=3000
-                )
-                page.snack_bar.open = True
+                print("Nenhuma img foi selecionada")
 
-            db.mycursor.close()
-            db.close()
-            dialog_verifi_select_img.open = False
-            page.update()
-
-        def btn_close_dialod(e):
-            dialog_verifi_select_img.open = False
-            page.update()
-
-
-        dialog_verifi_select_img = ft.AlertDialog(
-            bgcolor=ft.colors.BLUE_GREY_900,
-            modal=True,
-            title=ft.Text('Selecione sua biometria.'),
-            content=ft.Column([
-                ft.ElevatedButton(
-                    content=ft.Row([
-                        ft.Image(
-                            src='img/bio_pol_LM1.jpg',
-                            width=80,
-                            height=80,
-                            fit=ft.ImageFit.CONTAIN,
-                            border_radius=10
-                        ),
-                        ft.Text('Biometria', size=20),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    bgcolor=ft.colors.BLUE_GREY_900,
-                    width=350,
-                    height=80,
-                    on_click=btn_img_bio_nivel01,
-                ),
-
-                ft.ElevatedButton(
-                    content=ft.Row([
-                        ft.Image(
-                            src='img/bio_ind_L.jpg',
-                            width=80,
-                            height=80,
-                            fit=ft.ImageFit.CONTAIN,
-                            border_radius=10
-                        ),
-                        ft.Text('Biometria', size=20),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    bgcolor=ft.colors.BLUE_GREY_900,
-                    width=350,
-                    height=80,
-                    on_click=btn_img_bio_nivel02
-                ),
-
-                ft.ElevatedButton(
-                    content=ft.Row([
-                        ft.Image(
-                            src='img/bio_ind_R.jpg',
-                            width=80,
-                            height=80,
-                            fit=ft.ImageFit.CONTAIN,
-                            border_radius=10
-                        ),
-                        ft.Text('Biometria', size=20),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    bgcolor=ft.colors.BLUE_GREY_900,
-                    width=350,
-                    height=80,
-                    on_click=btn_img_bio_nivel03,
-                ),
-
-            ], alignment='center', spacing=10),
-            actions=[
-                ft.TextButton('Fechar', on_click=btn_close_dialod),
-
-            ])
-
-        #Funções da tela de verificação
+        file_picker = FilePicker(on_result=on_file_selected)
+        page.overlay.append(file_picker)
+        page.update()
 
         def btn_verication_bio(e):
-            page.dialog = dialog_verifi_select_img
-            dialog_verifi_select_img.open = True
+            file_picker.pick_files(
+                allow_multiple=False,
+                file_type="image",
+
+            )
             page.update()
 
 

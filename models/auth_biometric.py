@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 
+
 #Class dedicada para as funções de reconhecimento e tratamento da biometria/ imagem
 
 class Img_Biometric():
@@ -9,8 +10,9 @@ class Img_Biometric():
         self.img_path = img_path
         self.img = self.convert_img()
 
-    #Função para fazer o tratamento da imagem
-    #Converta para a escala de cinza
+#Função para fazer o tratamento da imagem
+
+    # Convertendo a image para a escala de cinza e fazendo o pré-processamento
     def convert_img(self):
         if not os.path.exists(self.img_path):
             print(f"Erro: camonho da imagem '{self.img_path}' não encontrada")
@@ -20,7 +22,21 @@ class Img_Biometric():
         if img is None:
             print(f"Erro ao carregar imagem: {self.img_path}")
             return None
-        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # Convertendo a imagem para a escala de cinza
+        if len(img.shape) == 3:
+            gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_img = img
+
+        # Pré-processamento para redução de ruido
+        gray_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
+
+        # Segmentação para realçar as caracteristicas
+        _, segmented_img = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY +
+                                         cv2.THRESH_OTSU)
+
+        return segmented_img
 
 
     #Converter a imagem em bytes, para ser armazenado no banco de dados
@@ -41,5 +57,63 @@ class Img_Biometric():
         if self.img is None or other_img is None:
             print("Erro ao carregar a imagem,")
             return None
-        difference = cv2.norm(self.img, other_img, cv2.NORM_L1)
-        return difference
+
+        if len(self.img.shape) == 3:
+            gray_self_img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_self_img = self.img
+
+        if len(other_img.shape) == 3:
+            gray_other_img = cv2.cvtColor(other_img, cv2.COLOR_BGR2GRAY)
+
+        else:
+            gray_other_img = other_img
+
+        # Pré-processamento
+        gray_self_img = cv2.GaussianBlur(gray_self_img, (5, 5), 0)
+        gray_other_img = cv2.GaussianBlur(gray_other_img, (5, 5), 0)
+
+        # Segmentação
+        _, segmented_self_img = cv2.threshold(gray_self_img, 0, 255, cv2.THRESH_BINARY +
+                                              cv2.THRESH_OTSU)
+        _, segmented_other_img = cv2.threshold(gray_other_img, 0, 255, cv2.THRESH_BINARY +
+                                               cv2.THRESH_OTSU)
+
+
+
+        intend_orb = cv2.ORB_create(nfeatures=20)
+
+        kp1, des1 = intend_orb.detectAndCompute(gray_self_img, None)
+        kp2, des2 = intend_orb.detectAndCompute(gray_other_img, None)
+
+        estimate_bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        matches = estimate_bf.knnMatch(des1, des2, k=2)
+
+        good_matches = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good_matches.append(m)
+
+
+
+        if len(good_matches) > 15:
+            # Desenhando os postos parecidos
+            img_matches = cv2.drawMatches(self.img, kp1, other_img, kp2, good_matches, None,
+                                          flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+            cv2.imshow('Pontos semelhantes', img_matches)
+
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            print("Acesso concedido!")
+            return True
+        else:
+            print("Acesso negado!")
+            return False
+        return
+
+
+
+
+
+
+

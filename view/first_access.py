@@ -1,9 +1,11 @@
 import bcrypt
 import flet as ft
 import mysql
+from flet_core import FilePickerResultEvent, FilePicker
 
-from models.connector_bd import Connector_BD
 from models.auth_biometric import Img_Biometric
+from models.connector_bd import Connector_BD
+
 
 #Class responsavel por desenhar a tela 'Primeiro Acesso' e suas funções
 class First_Access:
@@ -17,119 +19,21 @@ class First_Access:
         page.window_center()
 
 
-        #Inicio das funções e a criação da caixa de dialogo
 
-        def btn_img_bio_nivel01(e):
-            global print_byte
-            img = Img_Biometric("Img/bio_pol_LM1.jpg")
-            byte = img.img_to_byte()
-            print_byte = byte
-
-            print("Imagem biometria Ryan. Acesso nivel 01")
-            dialog_select_img.open = False
-            page.update()
-
-        def btn_img_bio_nivel02(e):
-            global print_byte
-            img = Img_Biometric("Img/bio_ind_L.jpg")
-            byte = img.img_to_byte()
-            print_byte = byte
-
-            print("Imagem biometria Leo. Acesso nivel 02")
-            dialog_select_img.open = False
-            page.update()
-
-        def btn_img_bio_nivel03(e):
-            global print_byte
-            img = Img_Biometric("Img/bio_ind_R.jpg")
-            byte = img.img_to_byte()
-            print_byte = byte
-
-            print("Imagem biometria Isa. Acesso nivel 03")
-            dialog_select_img.open = False
-            page.update()
-
-        def close_dialog(e):
-            dialog_select_img.open = False
-            page.update()
-
-
-
-        #Criando dialog para selecionar a image da biometria
-        dialog_select_img = ft.AlertDialog(
-            bgcolor=ft.colors.BLUE_GREY_900,
-            modal=True,
-            title=ft.Text('Selecione sua Biometria'),
-            content=ft.Column([
-                # Criando o primeiro botao, com a imagem do nivel 01
-                ft.ElevatedButton(
-                    content=ft.Row([
-                        ft.Image(
-                            src='img/bio_pol_LM1.jpg',
-                            width=80,
-                            height=80,
-                            fit=ft.ImageFit.CONTAIN,
-                            border_radius=10,
-                        ),
-                        ft.Text('Biometria  ', size=20),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    bgcolor=ft.colors.BLUE_GREY_900,
-                    width=350,
-                    height=80,
-                    on_click=btn_img_bio_nivel01,
-                ),
-
-                # Criando o segundo botao, com a imagem do nivel 02
-                ft.ElevatedButton(
-                    content=ft.Row([
-                        ft.Image(
-                            src='img/bio_ind_L.jpg',
-                            width=80,
-                            height=80,
-                            fit=ft.ImageFit.CONTAIN,
-                            border_radius=10,
-                        ),
-                        ft.Text('Biometria  ', size=20),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    bgcolor=ft.colors.BLUE_GREY_900,
-                    width=350,
-                    height=80,
-                    on_click=btn_img_bio_nivel02,
-                ),
-
-                # Criando o terceiro botao, com a imagem do nivel 03
-                ft.ElevatedButton(
-                    content=ft.Row([
-                        ft.Image(
-                            src='img/bio_ind_R.jpg',
-                            width=80,
-                            height=80,
-                            fit=ft.ImageFit.CONTAIN,
-                            border_radius=10,
-                        ),
-                        ft.Text('Biometria  ', size=20),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    bgcolor=ft.colors.BLUE_GREY_900,
-                    width=350,
-                    height=80,
-                    on_click=btn_img_bio_nivel03,
-                ),
-            ], alignment='center', spacing=10),
-            actions=[
-                ft.TextButton('Fechar', on_click=close_dialog),
-            ]
-        )
 
 #Inicio das funções e a criação da tela 'Primeiro acesso'
 
 
-        def record_access_db(access_user, access_num_registration, access_password, print_byte):
+        def record_access_db(access_user, access_num_registration, access_password,
+                             print_byte):
             db = Connector_BD()
 
             crypt_passw = bcrypt.hashpw(access_password.value.encode(), bcrypt.gensalt())
 
-            sql = "INSERT INTO login (username, number_registration, passw, fingerprint_image) VALUES (%s, %s, %s, %s)"
-            query = (access_user.value, access_num_registration.value, crypt_passw, print_byte)
+            sql = ("INSERT INTO login (username, number_registration, passw, "
+                   "fingerprint_image) VALUES (%s, %s, %s, %s)")
+            query = (access_user.value, access_num_registration.value, crypt_passw,
+                     print_byte)
 
             try:
                 db.mycursor.execute(sql, query)
@@ -146,18 +50,75 @@ class First_Access:
                 page.snack_bar.open = True
                 return False
 
+        def on_file_selected(event: FilePickerResultEvent):
+            global print_byte
+            if event.files:
+                img_selected = event.files[0].path
+                # colocar o que vou fazer com a img
+                img = Img_Biometric(img_selected)
+                byte = img.img_to_byte()
+                print_byte = byte
+                print("Imagem selecionada:", img_selected)
+            else:
+                print("Nenhuma img foi selecionada")
+
+        file_picker = FilePicker(on_result=on_file_selected)
+        page.overlay.append(file_picker)
+
+
+
         def btn_registration_bio(e):
-            page.dialog = dialog_select_img
-            dialog_select_img.open = True
+
+            file_picker.pick_files(
+                allow_multiple=False,
+                file_type="image",
+
+            )
             page.update()
 
 
         def btn_register(e):
             global print_byte
-            if access_user.value == '' or access_num_registration.value == '' or access_password.value == '' or access_confirm_password.value == '' :
+            if (access_user.value == '' or access_num_registration.value == '' or
+                    access_password.value == '' or access_confirm_password.value == '') :
                 print("Preencha todos os campos!!")
                 page.snack_bar = ft.SnackBar(
                     content=ft.Text(value='Preencha todos os campos'),
+                    bgcolor='red',
+                    action='OK',
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                page.update()
+
+            elif len (access_num_registration.value) < 5 or len(access_password.value) > 5:
+                print("Nùmero do registro deve conter 5 digitos!")
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(value='Nùmero do registro deve conter 5 digitos!'),
+                    bgcolor='red',
+                    action='OK',
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                page.update()
+
+            elif not (access_num_registration.value.endswith("01") or
+                      access_num_registration.value.endswith("02") or
+                      access_num_registration.value.endswith("03")):
+                print("Nùmero do registro incorreto!")
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(value='Nùmero do registro incorreto!'),
+                    bgcolor='red',
+                    action='OK',
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                page.update()
+
+            elif print_byte == None:
+                print("Selecione a Biometria!")
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(value='Selecione a Biometria!'),
                     bgcolor='red',
                     action='OK',
                     duration=3000
@@ -178,7 +139,8 @@ class First_Access:
                     access_confirm_password.value = None
                     page.update()
                 elif access_password.value == access_confirm_password.value:
-                    success = record_access_db(access_user, access_num_registration, access_password, print_byte)
+                    success = record_access_db(access_user, access_num_registration,
+                                               access_password, print_byte)
 
                     if success:
                         print("Dados salvos com sucesso!")
@@ -249,7 +211,6 @@ class First_Access:
             height=50,
             border_radius=30,
             prefix_icon=ft.icons.CONTACT_PAGE,
-            # keyboard_type=ft.KeyboardType.EMAIL,
             bgcolor='black',
         )
 
@@ -275,11 +236,10 @@ class First_Access:
             password=True,
             can_reveal_password=True,
             keyboard_type=ft.KeyboardType.VISIBLE_PASSWORD,
-            # keyboard_type=ft.KeyboardType.EMAIL,
             bgcolor='black',
         )
 
-        #Criando Tela de primeiro acesso
+        #Criando Tela de cadastro do primeiro acesso
         screen_first_access  = ft.Column([
             ft.Container(
                 bgcolor=ft.colors.BLUE_GREY_900,

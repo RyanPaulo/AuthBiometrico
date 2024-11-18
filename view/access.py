@@ -1,13 +1,8 @@
 import os
 import sys
 import flet as ft
-
-
 from models.connector_bd import Connector_BD
 from view.login import Treatment_User
-
-
-
 
 #Class responsavel por desenhar a tela de 'Acesso' e suas funções
 #Onde cotem os dados que os usuarioa estao tentando acessar
@@ -244,7 +239,7 @@ class Access:
                 ft.TextSpan(
                     '''
                     Funcionario: Leo Cordeiro Sutil
-                    • Função: Auxilia Administrativo
+                    • Função: Auxilie Administrativo
                     • Número de Regidtro : 55901
                     • RA: N0368J0
                     • Turma: CC5P33
@@ -263,7 +258,7 @@ class Access:
                 ft.TextSpan(
                     '''
                     Funcionario: ISABELLE RAMOS CEDRO 
-                    • Função: Ministro do Meio Ambiente
+                    • Função: Ministre do Meio Ambiente
                     • Número de Regidtro : 55803
                     • RA: F346CJ4
                     • Turma: CC6P33
